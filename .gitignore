@@ -1,0 +1,46 @@
+# Python environment, caches, and coverage
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.pytest_cache/
+.venv/
+env/
+venv/
+build/
+dist/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+
+# Test reports, logs, and artifacts
+reports/
+test-results/
+playwright-report/
+*.log
+*.png
+*.mp4
+*.tmp
+scratch/
+
+# Extracted APK artifacts and binaries
+_extracted_apk/
+*.apk
+!apps/*.apk
+*.aab
+*.apks
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json

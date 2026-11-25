@@ -130,8 +130,8 @@ MOBILE AUTOMATION/
   appium driver install uiautomator2
   ```
 * **Android SDK & Emulator**:
-  - `ANDROID_HOME`: `C:\Users\Mahesh\AppData\Local\Android\Sdk`
-  - Emulator AVD: `Medium_Phone_API_37.0` (or any configured AVD)
+  - `ANDROID_HOME`: Path to your Android SDK (e.g. `%LOCALAPPDATA%\Android\Sdk` on Windows or `$HOME/Library/Android/sdk` on macOS)
+  - Emulator AVD: Configured Android Virtual Device (API 31+ recommended)
 
 ---
 

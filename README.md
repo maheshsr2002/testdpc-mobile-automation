@@ -22,8 +22,8 @@ The framework separates test data and configurations into distinct, traceable so
 │                               │   - Policy names and update options         │
 ├───────────────────────────────┼─────────────────────────────────────────────┤
 │ 2. .env                       │ • Dynamic Environment Variables             │
-│    (read by config/settings.py)│   - APPIUM_SERVER_URL (default: 127.0.0.1:4723)
-│                               │   - PLATFORM_NAME (Android)                 │
+│    (created from .env.example,│   - APPIUM_SERVER_URL (default: 127.0.0.1:4723)
+│     read by config/settings.py)│   - PLATFORM_NAME (Android)                 │
 │                               │   - AUTOMATION_NAME (UiAutomator2)          │
 │                               │   - DEVICE_NAME (Android Emulator)          │
 │                               │   - APP_PACKAGE (com.sample.android.testdpc)│
@@ -31,10 +31,10 @@ The framework separates test data and configurations into distinct, traceable so
 │                               │   - APK_PATH (apps/testdpc.apk)             │
 │                               │   - DEFAULT_TIMEOUT (15s)                   │
 ├───────────────────────────────┼─────────────────────────────────────────────┤
-│ 3. _extracted_apk/            │ • Extracted APK Baseline Data (Reference)   │
-│    - resources_map.json       │   - Full mapping of Hex IDs to names/values │
-│    - extracted_strings.txt    │   - Complete dump of all APK strings        │
-│    - AndroidManifest_decoded.xml - Activities, permissions, and filters    │
+│ 3. APK Extraction Baseline    │ • Extracted APK Baseline Data (Reference)   │
+│    (local reference used to   │   - Full mapping of Hex IDs to names/values │
+│     generate data/setup_data) │   - Complete dump of all APK strings        │
+│                               │   - AndroidManifest activities & permissions│
 ├───────────────────────────────┼─────────────────────────────────────────────┤
 │ 4. Live Android Device /      │ • Runtime State Captured by Appium          │
 │    Emulator (at test runtime) │   - driver.current_package                  │

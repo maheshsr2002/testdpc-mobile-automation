@@ -55,7 +55,7 @@ mobile-automation-testdpc/
 │   └── workflows/
 │       └── ci.yml                   # Automated GitHub Actions CI/CD pipeline
 ├── apps/
-│   └── testdpc.apk                  # Target Android APK under test
+│   └── testdpc.apk                  # Tracked target Android APK under test
 ├── config/
 │   ├── __init__.py                  # Configuration exports
 │   └── settings.py                  # Environment loader, timeouts, and Appium capabilities
@@ -112,7 +112,7 @@ mobile-automation-testdpc/
 ├── reports/
 │   └── screenshots/                 # Captured full-screen PNGs on test failures (gitignored)
 ├── .env.example                     # Environment template for collaborators & CI
-├── .gitignore                       # Ignored secrets, local caches, logs, and binaries
+├── .gitignore                       # Ignored secrets, local caches, logs, and build artifacts
 ├── pytest.ini                       # Test discovery paths, options, and markers
 └── requirements.txt                 # Python project dependencies
 ```
@@ -125,11 +125,14 @@ The framework reads its configuration from a local `.env` file via `config/setti
 
 ### 1. Create your local `.env`:
 Copy the provided template:
-```bash
-# On Windows PowerShell:
-Copy-Item .env.example .env
 
-# On macOS / Linux:
+**On Windows PowerShell:**
+```powershell
+Copy-Item .env.example .env
+```
+
+**On macOS / Linux:**
+```bash
 cp .env.example .env
 ```
 
@@ -141,35 +144,38 @@ cp .env.example .env
 | `PLATFORM_NAME` | `Android` | Target mobile OS platform |
 | `AUTOMATION_NAME` | `UiAutomator2` | Appium automation engine driver |
 | `DEVICE_NAME` | `Android Emulator` | Connected device or emulator identifier |
-| `APP_PACKAGE` | `com.sample.android.testdpc` | Application package ID |
-| `APP_ACTIVITY` | `com.sample.android.testdpc.LaunchActivity` | Entry point activity |
-| `APP_WAIT_ACTIVITY` | `com.sample.android.testdpc.PolicyManagementActivity,com.sample.android.testdpc.LaunchActivity` | Activities to wait for upon launch |
+| `APP_PACKAGE` | `com.sample.android.testdpc` | Target application package ID |
+| `APP_ACTIVITY` | `com.sample.android.testdpc.LaunchActivity` | Main entry point activity |
+| `APP_WAIT_ACTIVITY` | `com.sample.android.testdpc.PolicyManagementActivity,com.sample.android.testdpc.LaunchActivity` | Target activities to await upon app launch |
 | `APK_PATH` | `apps/testdpc.apk` | Relative path to target APK file |
-| `DEFAULT_TIMEOUT` | `15` | Default explicit wait timeout in seconds |
+| `DEFAULT_TIMEOUT` | `15` | Explicit wait timeout in seconds |
 
 > [!NOTE]
-> Place your test APK inside the `apps/` directory (`apps/testdpc.apk`). The repository includes the official test APK ready for execution.
+> `.gitignore` is configured to ignore extraneous binary builds (`*.apk`), while explicitly tracking `!apps/*.apk`. The official `apps/testdpc.apk` binary is committed to the repository so tests can run immediately without manual downloads.
 
 ---
 
 ## 5. Device State & Provisioning Notes
 
-TestDPC operates in **two distinct lifecycle states**:
+TestDPC operates in **two distinct lifecycle states**. Understanding these states is essential for running the correct test suites:
 
 ### Mode A: Unprovisioned Setup Mode
-* **Screen**: `Setup Management` (`activity_setup_management.xml`)
-* **When to use**: To test initial setup wizards and profile creation (`tests/test_setup_flow.py`).
-* **Resetting to unprovisioned state**:
-  If the device is already Device Owner, remove it via:
+* **Active Screen**: `Setup Management` (`activity_setup_management.xml`)
+* **When to Use**: To test initial onboarding wizards and profile creation (`tests/test_setup_flow.py`).
+* **Resetting from Device Owner to Unprovisioned Mode**:
+  Launch TestDPC on the device or emulator:
   ```bash
   adb shell am start -n com.sample.android.testdpc/.LaunchActivity
-  # Scroll to "Remove this device owner" -> tap OK
   ```
+  Scroll to the bottom of the policy list, tap **"Remove this device owner"**, and click **OK** on the confirmation dialog.
 
 ### Mode B: Active Device Owner Mode
-* **Screen**: `Policy Management` Dashboard
-* **When to use**: To test all 50+ enterprise policies, dialog modals, wipe data, app restrictions, and network stats (`tests/test_pages_walkthrough.py`, `tests/test_policies_flow.py`, `tests/test_manage_apps_flow.py`).
-* **Enabling Device Owner on Emulator via ADB**:
+* **Active Screen**: `Policy Management` Dashboard
+* **When to Use**: To test all 50+ enterprise policies, dialog modals, wipe data, app restrictions, and network stats (`tests/test_pages_walkthrough.py`, `tests/test_policies_flow.py`, `tests/test_manage_apps_flow.py`).
+* **Prerequisites for Enabling Device Owner via ADB**:
+  1. The target device or emulator must have **no user accounts** (Google, Exchange, etc.) configured. If an account is present, Android security blocks provisioning.
+  2. No pre-existing Profile Owner or Device Owner can be active.
+* **Enabling Device Owner Command**:
   ```bash
   adb shell dpm set-device-owner com.sample.android.testdpc/.DeviceAdminReceiver
   ```
@@ -178,8 +184,8 @@ TestDPC operates in **two distinct lifecycle states**:
 
 ## 6. How to Run Tests
 
-### Step 1: Start your Android Emulator or connect a device
-Verify your device is online:
+### Step 1: Start your Android Emulator or connect a physical device
+Verify that your device is detected and online:
 ```bash
 adb devices
 ```
@@ -212,20 +218,27 @@ appium
   pytest tests/test_manage_apps_flow.py tests/test_policies_flow.py -v
   ```
 
-* **Run Test Discovery & Validation Check**:
+* **Run Full Suite Test Discovery**:
   ```bash
   pytest --collect-only -q
   ```
 
 ---
 
-## 7. Reports & Failure Screenshots
+## 7. Test Reporting & Failure Artifacts
 
-* **Automated Failure Screenshots**: When any test fails, the custom `pytest_runtest_makereport` hook in `tests/conftest.py` automatically captures the current screen state and saves a full-resolution PNG to:
+* **Terminal Console Reporting**: Standard execution summaries and tracebacks are output directly to the terminal. Use `--tb=short` for concise stack traces:
+  ```bash
+  pytest tests/ -v --tb=short
+  ```
+* **JUnit XML Test Results**: Generate machine-readable test reports for CI/CD dashboards:
+  ```bash
+  pytest tests/ --junitxml=reports/test-results.xml
+  ```
+* **Automated Failure Screenshots**: When any test fails, the custom `pytest_runtest_makereport` hook in `tests/conftest.py` automatically captures a full-resolution PNG and saves it to:
   ```text
   reports/screenshots/<test_name>.png
   ```
-* **HTML & Terminal Reporting**: Standard execution summaries and tracebacks are output directly to the console with short tracebacks (`--tb=short`).
 
 ---
 
@@ -233,6 +246,6 @@ appium
 
 The repository includes a GitHub Actions pipeline in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) that triggers automatically on every `push` and `pull_request` to `main`:
 
-* **Stage 1 (Syntax & Discovery Validation)**: Runs on `ubuntu-latest`, verifies Python dependencies, validates imports, and executes test discovery.
-* **Stage 2 (Android Emulator Smoke Suite)**: Boots an accelerated Android emulator, starts Appium, installs the target APK with low-SDK bypass flags, and runs smoke tests.
-* **Stage 3 (Artifact Publishing)**: Automatically collects execution logs and failure screenshots and uploads them as downloadable GitHub artifacts.
+* **Stage 1: Framework Validation (Ubuntu)**: Runs on `ubuntu-latest`, verifies Python dependencies, validates imports, and executes test discovery (`pytest --collect-only -v`).
+* **Stage 2: Android Emulator E2E Suite (macOS)**: Runs on `macos-13` utilizing hardware-accelerated virtualization to boot an Android API 33 emulator, launches Appium, and installs the target APK with the `--bypass-low-target-sdk-block` flag (required on modern Android APIs for SDK 23 targets).
+* **Stage 3: Artifact Publishing**: Automatically collects execution logs and failure screenshots and uploads them as downloadable GitHub Actions artifacts.

@@ -1,199 +1,238 @@
 # TestDPC Mobile Test Automation Framework
 
-An enterprise-grade, 5-layer mobile automation testing framework for **TestDPC 2.0.4** built with **Python**, **Appium**, **UiAutomator2**, and **pytest**.
+An enterprise-grade, 5-layer mobile automation testing framework for **TestDPC** (Android Enterprise Device Policy Controller) built with **Python**, **Appium**, **UiAutomator2**, and **pytest**.
 
 ---
 
-## 1. Where Test Data is Fetched From
+## 1. Project Overview & Target App
 
-The framework separates test data and configurations into distinct, traceable sources:
+* **Target Application**: [TestDPC](https://github.com/googlesamples/android-testdpc) (Package: `com.sample.android.testdpc`, Launcher Activity: `.LaunchActivity`)
+* **Purpose**: Automate validation of Android Enterprise device management capabilities, policy enforcement, work profile provisioning, and device administration workflows.
+* **Core Technology Stack**:
+  * **Language**: Python 3.10+ (tested on Python 3.12 / 3.14)
+  * **Mobile Automation**: Appium 2.x with `uiautomator2` driver
+  * **Test Runner**: pytest 8.x / 9.x
+  * **Architecture Pattern**: 5-Layer Page Object Model (POM) with Step Choreography
+  * **CI/CD Pipeline**: GitHub Actions automated workflow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          TEST DATA SOURCES                                  │
-├───────────────────────────────┬─────────────────────────────────────────────┤
-│ Source File                   │ Purpose & Data Fetched                      │
-├───────────────────────────────┼─────────────────────────────────────────────┤
-│ 1. data/setup_data.py         │ • Static Expected Strings & Test Inputs     │
-│                               │   - Expected headers, labels, and copy      │
-│                               │   - Radio option strings                    │
-│                               │   - Test Wi-Fi SSIDs & credentials          │
-│                               │   - Certificate aliases & passwords         │
-│                               │   - Policy names and update options         │
-├───────────────────────────────┼─────────────────────────────────────────────┤
-│ 2. .env                       │ • Dynamic Environment Variables             │
-│    (created from .env.example,│   - APPIUM_SERVER_URL (default: 127.0.0.1:4723)
-│     read by config/settings.py)│   - PLATFORM_NAME (Android)                 │
-│                               │   - AUTOMATION_NAME (UiAutomator2)          │
-│                               │   - DEVICE_NAME (Android Emulator)          │
-│                               │   - APP_PACKAGE (com.sample.android.testdpc)│
-│                               │   - APP_ACTIVITY (.LaunchActivity)          │
-│                               │   - APK_PATH (apps/testdpc.apk)             │
-│                               │   - DEFAULT_TIMEOUT (15s)                   │
-├───────────────────────────────┼─────────────────────────────────────────────┤
-│ 3. APK Extraction Baseline    │ • Extracted APK Baseline Data (Reference)   │
-│    (local reference used to   │   - Full mapping of Hex IDs to names/values │
-│     generate data/setup_data) │   - Complete dump of all APK strings        │
-│                               │   - AndroidManifest activities & permissions│
-├───────────────────────────────┼─────────────────────────────────────────────┤
-│ 4. Live Android Device /      │ • Runtime State Captured by Appium          │
-│    Emulator (at test runtime) │   - driver.current_package                  │
-│                               │   - driver.current_activity                 │
-│                               │   - element.text via get_text()             │
-│                               │   - element.is_selected() / checked state   │
-└───────────────────────────────┴─────────────────────────────────────────────┘
-```
+### Automation Scope
+* **Setup & Provisioning**: Unprovisioned device setup wizard, Managed Profile vs. Device Owner selection.
+* **Enterprise Policy Management**: Dynamic list navigation, Runtime Permission policies (Prompt / Auto Accept / Auto Deny), System Update maintenance policies (Automatic / Windowed / Postpone).
+* **Device & App Management**: Factory Reset & Wipe Data dialog (external storage & protection flags), application restrictions, system apps management.
+* **Security & Certificates**: Certificate alias override modal, delegated certificate installer package assignment.
+* **Data & Usage Monitoring**: Network Data Usage statistics queries, date range filters.
+* **Advanced Modes**: Kiosk / COSU (Corporate-Owned Single-Use) mode, cross-profile intent routing.
 
 ---
 
-## 2. Framework Architecture (5-Layer Design)
+## 2. Prerequisites & Environment Setup
 
-The project follows the Page Object Model (POM) and Separation of Concerns:
+Ensure the following tools are installed on your workstation:
 
-```text
-MOBILE AUTOMATION/
-├── apps/
-│   └── testdpc.apk                  # Target Android APK under test
-├── config/
-│   ├── __init__.py                  # Exposes configuration constants
-│   └── settings.py                  # Reads .env, sets paths, timeouts & capabilities
-├── data/
-│   ├── __init__.py                  # Exposes test data dictionaries
-│   └── setup_data.py                # Expected UI text, test inputs, credentials
-├── pages/
-│   ├── __init__.py                  # Exports all Page Objects and Modals
-│   ├── base_page.py                 # Core Appium interaction wrapper (waits, clicks, taps)
-│   │
-│   ├── # --- MODAL DIALOGS ---
-│   ├── certificate_alias_modal.py   # Modal: Certificate alias prompt
-│   ├── certificate_password_modal.py# Modal: Certificate password prompt
-│   ├── wifi_config_page.py          # Modal: Wi-Fi network configuration dialog
-│   ├── wifi_modification_modal.py   # Modal: Wi-Fi update/removal dialog
-│   ├── wipe_data_dialog.py          # Modal: Factory reset & protection options
-│   ├── add_intent_modal.py          # Modal: Add intent and filter dialog
-│   ├── edit_restriction_modal.py    # Modal: App restrictions editor dialog
-│   │
-│   └── # --- SCREENS & ACTIVITIES ---
-│       ├── setup_management_page.py # Setup management fragment
-│       ├── add_account_page.py      # Add account activity
-│       ├── permission_policy_page.py# Permission policy options
-│       ├── system_update_policy_page.py # System update policy options
-│       ├── manage_apps_page.py      # Enterprise application restrictions
-│       ├── delegated_cert_page.py   # Delegated certificate installers
-│       ├── network_usage_stats_page.py # Network data usage statistics
-│       ├── media_display_page.py    # Media playback and controls
-│       ├── cross_profile_intent_page.py # Cross-profile intent direction
-│       ├── cosu_kiosk_page.py       # COSU / Kiosk provisioning
-│       └── finish_provisioning_page.py # Setup completion screen
-├── steps/
-│   ├── __init__.py                  # Exports all Step choreography classes
-│   ├── setup_steps.py               # Setup wizard choreography
-│   ├── account_steps.py             # Account setup & skip steps
-│   ├── wifi_steps.py                # Wi-Fi entry & config steps
-│   ├── policy_steps.py              # Permission & update policy steps
-│   ├── app_management_steps.py      # App restrictions & wipe dialog steps
-│   ├── certificate_steps.py         # Cert alias, password & delegated installer steps
-│   ├── network_stats_steps.py       # Network usage stats queries & date filters
-│   ├── media_steps.py               # Media playback, stop, and delete steps
-│   └── intent_steps.py              # Add intent modal & cross-profile intent steps
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py                  # Driver fixture + screenshot on failure
-│   ├── test_setup_flow.py           # Setup screen scenarios (3 tests)
-│   ├── test_add_account_flow.py     # Add account scenarios (2 tests)
-│   ├── test_wifi_config_flow.py     # Wi-Fi dialog scenarios (1 test)
-│   ├── test_wifi_modification_flow.py # Wi-Fi modification modal scenarios (1 test)
-│   ├── test_certificate_modals_flow.py # Certificate alias & password modals (2 tests)
-│   ├── test_intent_filter_flow.py   # Add Intent filter modal scenarios (1 test)
-│   ├── test_manage_apps_flow.py     # App management & wipe data dialog (1 test)
-│   ├── test_policies_flow.py        # Permission & update policy scenarios (2 tests)
-│   ├── test_network_stats_flow.py   # Network stats query scenarios (1 test)
-│   └── test_media_display_flow.py   # Media player controls scenarios (1 test)
-├── reports/
-│   └── screenshots/                 # Auto-saved PNG screenshots on test failure
-├── _extracted_apk/                  # Decompiled APK layouts, manifests, and strings
-├── .env                             # Local environment variables (gitignored)
-├── .gitignore                       # Standard Python, test artifacts, and temp files
-├── pytest.ini                       # Testpaths, markers, and execution options
-└── requirements.txt                 # Python dependencies
-```
-
----
-
-## 3. Prerequisites
-
-* **Python 3.10+** (Python 3.14 installed in `.venv`)
-* **Node.js** (v24.x)
-* **Appium Server & Driver**:
-  ```powershell
+* **Python 3.10+**: With `pip` and virtual environment support.
+* **Node.js**: v18.x or v20.x+ LTS.
+* **Appium Server & UiAutomator2 Driver**:
+  ```bash
   npm install -g appium
   appium driver install uiautomator2
   ```
-* **Android SDK & Emulator**:
-  - `ANDROID_HOME`: Path to your Android SDK (e.g. `%LOCALAPPDATA%\Android\Sdk` on Windows or `$HOME/Library/Android/sdk` on macOS)
-  - Emulator AVD: Configured Android Virtual Device (API 31+ recommended)
+* **Android SDK & Platform Tools**:
+  * Set `ANDROID_HOME` in your environment (e.g. `%LOCALAPPDATA%\Android\Sdk` on Windows, or `$HOME/Library/Android/sdk` on macOS).
+  * Ensure `platform-tools` (containing `adb`) is added to your system `PATH`.
+* **Android Device or Emulator**:
+  * Minimum Android API level: **API 21+** (Android 5.0 Lollipop).
+  * Recommended: **API 31+** (Android 12+) Google APIs system image.
 
 ---
 
-## 4. Setup & Installation
+## 3. Project Structure
 
-1. **Activate Virtual Environment**:
-   ```powershell
-   .\.venv\Scripts\Activate.ps1
-   ```
+The framework strictly enforces separation of concerns across 5 architectural layers:
 
-2. **Install Dependencies**:
-   ```powershell
-   pip install -r requirements.txt
-   ```
-
----
-
-## 5. Running the Tests
-
-### Step 1: Boot your Android Emulator
-In Android Studio, launch **Device Manager** and start `Medium_Phone_API_37.0` (or launch via terminal):
-```powershell
-emulator -avd Medium_Phone_API_37.0
+```text
+mobile-automation-testdpc/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                   # Automated GitHub Actions CI/CD pipeline
+├── apps/
+│   └── testdpc.apk                  # Target Android APK under test
+├── config/
+│   ├── __init__.py                  # Configuration exports
+│   └── settings.py                  # Environment loader, timeouts, and Appium capabilities
+├── data/
+│   ├── __init__.py                  # Test data exports
+│   └── setup_data.py                # Expected UI strings, policy types, and mock test inputs
+├── pages/
+│   ├── __init__.py                  # Exports all Page Objects and Modals
+│   ├── base_page.py                 # Core driver wrapper (explicit waits, taps, inputs)
+│   ├── policy_dashboard_page.py     # Main Policy Management ListView with UiScrollable
+│   ├── setup_management_page.py     # Initial setup wizard screen
+│   ├── wipe_data_dialog.py          # Wipe data confirmation modal
+│   ├── system_update_policy_page.py # System update maintenance options
+│   ├── permission_policy_page.py    # Runtime permission configuration dialog
+│   ├── delegated_cert_page.py       # Delegated certificate installer screen
+│   ├── network_usage_stats_page.py  # Network data usage statistics screen
+│   ├── certificate_alias_modal.py   # Certificate alias override modal
+│   ├── certificate_password_modal.py# Certificate password prompt modal
+│   ├── wifi_config_page.py          # Wi-Fi configuration modal
+│   ├── wifi_modification_modal.py   # Wi-Fi modification dialog
+│   ├── manage_apps_page.py          # App restrictions and management
+│   ├── edit_restriction_modal.py    # Application restriction editor modal
+│   ├── media_display_page.py        # Media capture and playback controls
+│   ├── cross_profile_intent_page.py # Cross-profile intent direction screen
+│   ├── add_intent_modal.py          # Add intent filter modal
+│   ├── cosu_kiosk_page.py           # Kiosk mode configuration screen
+│   ├── add_account_page.py          # Add account provisioning screen
+│   └── finish_provisioning_page.py  # Provisioning completion screen
+├── steps/
+│   ├── __init__.py                  # Step choreography exports
+│   ├── setup_steps.py               # Setup wizard choreography
+│   ├── policy_steps.py              # Permission and update policy workflows
+│   ├── app_management_steps.py      # App restrictions and wipe data workflows
+│   ├── certificate_steps.py         # Certificate overrides and installer steps
+│   ├── network_stats_steps.py       # Network usage query workflows
+│   ├── wifi_steps.py                # Wi-Fi entry workflows
+│   ├── media_steps.py               # Media playback workflows
+│   ├── intent_steps.py              # Cross-profile intent workflows
+│   └── account_steps.py             # Provisioning account steps
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py                  # Appium session fixture, app reset, failure screenshot hook
+│   ├── test_setup_flow.py           # Unprovisioned setup wizard scenarios
+│   ├── test_pages_walkthrough.py    # Multi-page live UI navigation walkthrough
+│   ├── test_manage_apps_flow.py     # App management & wipe data scenarios
+│   ├── test_policies_flow.py        # System update & permission policy scenarios
+│   ├── test_certificate_modals_flow.py # Certificate modal scenarios
+│   ├── test_network_stats_flow.py   # Network usage statistics scenarios
+│   ├── test_wifi_config_flow.py     # Wi-Fi configuration scenarios
+│   ├── test_wifi_modification_flow.py # Wi-Fi update scenarios
+│   ├── test_media_display_flow.py   # Media player control scenarios
+│   ├── test_intent_filter_flow.py   # Intent filter modal scenarios
+│   └── test_add_account_flow.py     # Add account provisioning scenarios
+├── reports/
+│   └── screenshots/                 # Captured full-screen PNGs on test failures (gitignored)
+├── .env.example                     # Environment template for collaborators & CI
+├── .gitignore                       # Ignored secrets, local caches, logs, and binaries
+├── pytest.ini                       # Test discovery paths, options, and markers
+└── requirements.txt                 # Python project dependencies
 ```
-Verify the device is online:
-```powershell
+
+---
+
+## 4. Configuration & Environment Variables
+
+The framework reads its configuration from a local `.env` file via `config/settings.py`.
+
+### 1. Create your local `.env`:
+Copy the provided template:
+```bash
+# On Windows PowerShell:
+Copy-Item .env.example .env
+
+# On macOS / Linux:
+cp .env.example .env
+```
+
+### 2. Supported Configuration Variables:
+
+| Variable | Default Value | Description |
+| :--- | :--- | :--- |
+| `APPIUM_SERVER_URL` | `http://127.0.0.1:4723` | Appium 2.x server endpoint |
+| `PLATFORM_NAME` | `Android` | Target mobile OS platform |
+| `AUTOMATION_NAME` | `UiAutomator2` | Appium automation engine driver |
+| `DEVICE_NAME` | `Android Emulator` | Connected device or emulator identifier |
+| `APP_PACKAGE` | `com.sample.android.testdpc` | Application package ID |
+| `APP_ACTIVITY` | `com.sample.android.testdpc.LaunchActivity` | Entry point activity |
+| `APP_WAIT_ACTIVITY` | `com.sample.android.testdpc.PolicyManagementActivity,com.sample.android.testdpc.LaunchActivity` | Activities to wait for upon launch |
+| `APK_PATH` | `apps/testdpc.apk` | Relative path to target APK file |
+| `DEFAULT_TIMEOUT` | `15` | Default explicit wait timeout in seconds |
+
+> [!NOTE]
+> Place your test APK inside the `apps/` directory (`apps/testdpc.apk`). The repository includes the official test APK ready for execution.
+
+---
+
+## 5. Device State & Provisioning Notes
+
+TestDPC operates in **two distinct lifecycle states**:
+
+### Mode A: Unprovisioned Setup Mode
+* **Screen**: `Setup Management` (`activity_setup_management.xml`)
+* **When to use**: To test initial setup wizards and profile creation (`tests/test_setup_flow.py`).
+* **Resetting to unprovisioned state**:
+  If the device is already Device Owner, remove it via:
+  ```bash
+  adb shell am start -n com.sample.android.testdpc/.LaunchActivity
+  # Scroll to "Remove this device owner" -> tap OK
+  ```
+
+### Mode B: Active Device Owner Mode
+* **Screen**: `Policy Management` Dashboard
+* **When to use**: To test all 50+ enterprise policies, dialog modals, wipe data, app restrictions, and network stats (`tests/test_pages_walkthrough.py`, `tests/test_policies_flow.py`, `tests/test_manage_apps_flow.py`).
+* **Enabling Device Owner on Emulator via ADB**:
+  ```bash
+  adb shell dpm set-device-owner com.sample.android.testdpc/.DeviceAdminReceiver
+  ```
+
+---
+
+## 6. How to Run Tests
+
+### Step 1: Start your Android Emulator or connect a device
+Verify your device is online:
+```bash
 adb devices
 ```
 
 ### Step 2: Start Appium Server
-In a separate terminal tab:
-```powershell
+In a separate terminal window, launch Appium:
+```bash
 appium
 ```
 
-### Step 3: Run Tests
+### Step 3: Execute Test Suites
 
-* **Run Smoke Tests**:
-  ```powershell
-  .\.venv\Scripts\pytest.exe -m smoke
+* **Run Multi-Page Live UI Walkthrough** (Visits and exercises 7 pages/modals live on screen):
+  ```bash
+  pytest tests/test_pages_walkthrough.py -v -s
   ```
 
-* **Run Full Regression Suite (All 15 Tests)**:
-  ```powershell
-  .\.venv\Scripts\pytest.exe
+* **Run Setup Wizard Flow**:
+  ```bash
+  pytest tests/test_setup_flow.py -v
   ```
 
-* **Run a Specific Test Module**:
-  ```powershell
-  .\.venv\Scripts\pytest.exe tests/test_setup_flow.py
+* **Run Smoke Test Suite**:
+  ```bash
+  pytest -m smoke -v
   ```
 
-* **Generate HTML / Detailed Report**:
-  ```powershell
-  .\.venv\Scripts\pytest.exe -v --tb=short
+* **Run Regression Policy & Management Tests**:
+  ```bash
+  pytest tests/test_manage_apps_flow.py tests/test_policies_flow.py -v
+  ```
+
+* **Run Test Discovery & Validation Check**:
+  ```bash
+  pytest --collect-only -q
   ```
 
 ---
 
-## 6. Failure Screenshots
+## 7. Reports & Failure Screenshots
 
-When any test fails, the custom `pytest_runtest_makereport` hook in [`tests/conftest.py`](file:///d:/mobile%20automation%20test%20dpc%202.0.4/tests/conftest.py) automatically captures a full-screen screenshot and saves it to:
-```
-reports/screenshots/<test_name>.png
-```
+* **Automated Failure Screenshots**: When any test fails, the custom `pytest_runtest_makereport` hook in `tests/conftest.py` automatically captures the current screen state and saves a full-resolution PNG to:
+  ```text
+  reports/screenshots/<test_name>.png
+  ```
+* **HTML & Terminal Reporting**: Standard execution summaries and tracebacks are output directly to the console with short tracebacks (`--tb=short`).
+
+---
+
+## 8. Continuous Integration (CI/CD)
+
+The repository includes a GitHub Actions pipeline in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) that triggers automatically on every `push` and `pull_request` to `main`:
+
+* **Stage 1 (Syntax & Discovery Validation)**: Runs on `ubuntu-latest`, verifies Python dependencies, validates imports, and executes test discovery.
+* **Stage 2 (Android Emulator Smoke Suite)**: Boots an accelerated Android emulator, starts Appium, installs the target APK with low-SDK bypass flags, and runs smoke tests.
+* **Stage 3 (Artifact Publishing)**: Automatically collects execution logs and failure screenshots and uploads them as downloadable GitHub artifacts.

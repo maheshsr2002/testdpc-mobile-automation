@@ -227,7 +227,7 @@ appium
 
 ## 7. Test Reporting & Failure Artifacts
 
-* **Terminal Console Reporting**: Standard execution summaries and tracebacks are output directly to the terminal. Use `--tb=short` for concise stack traces:
+* **Terminal Console Reporting**: Standard execution summaries and tracebacks are output directly to the terminal. Use `--tb=short` for concise stack traces (optional: `--html=reports/report.html` if `pytest-html` is installed):
   ```bash
   pytest tests/ -v --tb=short
   ```
